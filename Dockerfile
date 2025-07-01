@@ -15,7 +15,7 @@ WORKDIR /app
 COPY --from=build /out ./
 
 # Expose port
-EXPOSE 80
+EXPOSE 8080
 
 # Run the app
 ENTRYPOINT ["dotnet", "webchat.dll"]
