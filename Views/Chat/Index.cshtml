@@ -1,0 +1,442 @@
+﻿@model List<webchat.Models.ApplicationUser>
+@{
+    ViewData["Title"] = "Chat";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<!-- Link CSS cho chat -->
+<link rel="stylesheet" href="~/css/chat.css" />
+@section Styles {
+    <link rel="stylesheet" href="~/css/chat-settings.css" asp-append-version="true" />
+}
+
+<div class="container-fluid h-100">
+    <div class="row h-100">
+        <!-- User List Sidebar -->
+        <div class="col-md-3 bg-light border-end h-100">
+            <div class="p-3 border-bottom">
+                <h5 class="mb-0">💬 Chat</h5>
+                <small class="text-muted">Chọn người để chat</small>
+            </div>
+
+            <div class="list-group list-group-flush">
+                @foreach (var user in Model)
+                {
+                    <a href="#" class="list-group-item list-group-item-action user-item"
+                       data-user-id="@user.Id" data-user-name="@(user.FullName ?? user.Email)">
+                        <div class="d-flex align-items-center">
+                            @if (!string.IsNullOrEmpty(user.ProfilePicture))
+                            {
+                                <img src="@user.ProfilePicture" alt="Avatar"
+                                     class="rounded-circle me-2" style="width: 40px; height: 40px; object-fit: cover;">
+                            }
+                            else
+                            {
+                                <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center me-2"
+                                     style="width: 40px; height: 40px;">
+                                    <i class="fas fa-user text-white"></i>
+                                </div>
+                            }
+                            <div>
+                                <div class="fw-bold">@(user.FullName ?? user.Email)</div>
+                                <small class="text-muted">@user.Email</small>
+                            </div>
+                        </div>
+                    </a>
+                }
+            </div>
+        </div>
+
+        <!-- Chat Area -->
+        <div class="col-md-9 d-flex flex-column h-100">
+            <!-- Chat Header -->
+            <div class="p-3 border-bottom bg-white">
+                <div id="chatHeader" class="d-none">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center chat-user-info" data-bs-toggle="modal" data-bs-target="#chatSettingsModal">
+                            <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center me-2 chat-avatar"
+                                 style="width: 40px; height: 40px; cursor: pointer;" title="Cài đặt đoạn chat">
+                                <i class="fas fa-user text-white"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-0" id="selectedUserName">Chọn người để chat</h6>
+                                <small class="text-success">🟢 Online</small>
+                            </div>
+                        </div>
+
+                        <!-- Call buttons -->
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-outline-success btn-sm call-button" id="audioCallButton" disabled title="Gọi thoại">
+                                <i class="fas fa-phone"></i>
+                            </button>
+                            <button class="btn btn-outline-primary btn-sm call-button" id="videoCallButton" disabled title="Gọi video">
+                                <i class="fas fa-video"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div id="noChatSelected" class="text-center text-muted">
+                    <i class="fas fa-comments fa-2x mb-2"></i>
+                    <p>Chọn một người từ danh sách để bắt đầu chat</p>
+                </div>
+            </div>
+
+            <!-- Messages Area -->
+            <div class="flex-grow-1 overflow-auto p-3" id="messagesContainer" style="height: 400px;">
+                <div id="messages">
+                    <!-- Tin nhắn sẽ được thêm động thông qua JavaScript -->
+                </div>
+            </div>
+
+            <!-- Voice Recording UI -->
+            <div id="voiceRecordingUI" class="mx-3 mb-2 p-3 bg-light rounded" style="display: none;">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center">
+                        <div class="recording-indicator me-2">
+                            <div class="pulse-dot"></div>
+                        </div>
+                        <span>Đang ghi âm... <span id="recordingTime">00:00</span></span>
+                    </div>
+                    <div>
+                        <button class="btn btn-danger btn-sm me-2" id="cancelRecordingButton">
+                            <i class="fas fa-times"></i> Hủy
+                        </button>
+                        <button class="btn btn-success btn-sm" id="stopRecordingButton">
+                            <i class="fas fa-stop"></i> Gửi
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Upload Progress -->
+            <div id="uploadProgress" class="mx-3 mb-2" style="display: none;">
+                <div class="progress">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated"
+                         style="width: 100%">
+                        Đang upload...
+                    </div>
+                </div>
+                <small class="text-muted">Đang tải file lên...</small>
+            </div>
+
+            <!-- Message Input -->
+            <div class="p-3 border-top bg-white">
+                <div class="input-group">
+                    <input type="file" id="fileInput" class="form-control"
+                           accept="image/*,video/*,.pdf,.doc,.docx,.txt" style="display: none;" />
+
+                    <button class="btn btn-outline-secondary call-button" id="attachButton" disabled title="Đính kèm file">
+                        📎
+                    </button>
+
+                    <button class="btn btn-outline-success call-button" id="voiceButton" disabled title="Ghi âm">
+                        🎤
+                    </button>
+
+                    <input type="text" id="messageInput" class="form-control"
+                           placeholder="Chọn người để chat..." disabled />
+
+                    <button class="btn btn-primary call-button" id="sendButton" disabled>
+                        📤 Gửi
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Connection Status Indicator -->
+<div id="connectionStatus" class="connection-status connected">
+    <i class="fas fa-wifi"></i> Connected
+</div>
+
+<!-- Chat Settings Modal -->
+<div class="modal fade" id="chatSettingsModal" tabindex="-1" aria-labelledby="chatSettingsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="chatSettingsModalLabel">Cài đặt đoạn chat</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs" id="chatSettingsTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="background-tab" data-bs-toggle="tab"
+                                data-bs-target="#background-pane" type="button" role="tab"
+                                aria-controls="background-pane" aria-selected="true">
+                            <i class="fas fa-image"></i> Hình nền
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="nickname-tab" data-bs-toggle="tab"
+                                data-bs-target="#nickname-pane" type="button" role="tab"
+                                aria-controls="nickname-pane" aria-selected="false">
+                            <i class="fas fa-user-edit"></i> Biệt danh
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="theme-tab" data-bs-toggle="tab"
+                                data-bs-target="#theme-pane" type="button" role="tab"
+                                aria-controls="theme-pane" aria-selected="false">
+                            <i class="fas fa-paint-brush"></i> Chủ đề
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content p-3" id="chatSettingsContent">
+                    <!-- Chỉ giữ phần hình nền mẫu -->
+                    <div class="tab-pane fade show active" id="background-pane" role="tabpanel" aria-labelledby="background-tab">
+                        <h4 class="mb-3">Hình nền đoạn chat</h4>
+
+                        <!-- Phần hiển thị hình nền mẫu có sẵn -->
+                        <div class="bg-templates-container mb-4">
+                            <h5>Hình nền mẫu</h5>
+                            <div class="row row-cols-2 row-cols-md-4 g-3" id="bgTemplatesGrid">
+                                <div class="col">
+                                    <div class="card h-100 bg-loading-placeholder">
+                                        <div class="card-body d-flex align-items-center justify-content-center">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="current-bg-preview mb-4">
+                            <h5>Hình nền hiện tại</h5>
+                            <div class="card">
+                                <div class="card-body p-2">
+                                    <div class="current-bg-container" style="height: 150px; border-radius: 8px; background-size: cover; background-position: center;"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            Hình nền sẽ chỉ áp dụng cho đoạn chat hiện tại với người này.
+                        </div>
+                    </div>
+
+                    <!-- Biệt danh -->
+                    <div class="tab-pane fade" id="nickname-pane" role="tabpanel" aria-labelledby="nickname-tab">
+                        <h4 class="mb-3">Đặt biệt danh</h4>
+                        <p>Chức năng này đang được phát triển.</p>
+                    </div>
+
+                    <!-- Chủ đề -->
+                    <div class="tab-pane fade" id="theme-pane" role="tabpanel" aria-labelledby="theme-tab">
+                        <h4 class="mb-3">Chủ đề đoạn chat</h4>
+                        <p>Chức năng này đang được phát triển.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div id="chatSettingsStatus" class="text-start me-auto" style="display: none;"></div>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Không khai báo lại biến connection hoặc các biến toàn cục đã có trong signalr-init.js
+    if (typeof currentUserId === 'undefined') {
+        currentUserId = '@ViewBag.CurrentUser?.Id';
+    }
+    selectedUserId = '@ViewBag.SelectedUserId';
+    selectedUserName = '@ViewBag.SelectedUserName';
+
+    // Initialize the app
+    document.addEventListener('DOMContentLoaded', function() {
+        setupEventListeners();
+        // Đảm bảo template sẵn sàng trước khi gọi displayMessage
+        if (document.getElementById('messageOptionsMenu')) {
+            const hasValidUserId = selectedUserId && selectedUserId.trim() !== '' && selectedUserId !== 'undefined' && selectedUserId !== 'null';
+            const hasValidUserName = selectedUserName && selectedUserName.trim() !== '' && selectedUserName !== 'undefined' && selectedUserName !== 'null';
+            if (hasValidUserId && hasValidUserName) {
+                const userCount = document.querySelectorAll('.user-item').length;
+                if (userCount > 0) {
+                    selectUser(selectedUserId, selectedUserName);
+                } else {
+                    let attempts = 0;
+                    const maxAttempts = 20;
+                    const checkUsers = setInterval(() => {
+                        attempts++;
+                        const currentUserCount = document.querySelectorAll('.user-item').length;
+                        if (currentUserCount > 0) {
+                            clearInterval(checkUsers);
+                            selectUser(selectedUserId, selectedUserName);
+                        } else if (attempts >= maxAttempts) {
+                            clearInterval(checkUsers);
+                            selectUser(selectedUserId, selectedUserName);
+                        }
+                    }, 250);
+                }
+            }
+        } else {
+            setTimeout(() => {
+                if (document.getElementById('messageOptionsMenu')) {
+                    const hasValidUserId = selectedUserId && selectedUserId.trim() !== '' && selectedUserId !== 'undefined' && selectedUserId !== 'null';
+                    const hasValidUserName = selectedUserName && selectedUserName.trim() !== '' && selectedUserName !== 'undefined' && selectedUserName !== 'null';
+                    if (hasValidUserId && hasValidUserName) {
+                        const userCount = document.querySelectorAll('.user-item').length;
+                        if (userCount > 0) {
+                            selectUser(selectedUserId, selectedUserName);
+                        }
+                    }
+                }
+            }, 1000); // Đợi 1 giây để thử lại
+        }
+    });
+</script>
+
+<!-- Tham chiếu đến file JavaScript riêng cho logic xử lý menu tùy chọn (đặt trước để đảm bảo tải trước) -->
+<script src="~/js/message-options.js"></script>
+
+<!-- Tham chiếu đến file xử lý tin nhắn -->
+<script src="~/js/message-handling.js"></script>
+
+<!-- Tham chiếu đến các file khác (nếu có) -->
+<script src="~/js/user-selection.js"></script>
+<script src="~/js/signalr-init.js"></script>
+<script src="~/js/webrtc-calls.js"></script>
+@section Scripts {
+    <script src="~/js/chat-settings-manager.js"></script>
+}
+<script src="~/js/persistent-background.js"></script>
+<!-- Message Options Menu Template (đặt trực tiếp với ID đúng) -->
+<div id="messageOptionsMenu" class="message-options-menu d-none" style="background: white; border: 1px solid #ccc; padding: 10px; border-radius: 4px; min-width: 120px;">
+    <div class="option" data-action="delete" style="padding: 5px; cursor: pointer;">Xóa</div>
+    <div class="option" data-action="reply" style="padding: 5px; cursor: pointer;">Trả lời</div>
+    <div class="option" data-action="pin" style="padding: 5px; cursor: pointer;">Ghim</div>
+    <div class="option" data-action="report" style="padding: 5px; cursor: pointer;">Báo cáo</div>
+    <div class="option" data-action="recall" style="padding: 5px; cursor: pointer; position: relative;">
+        Thu hồi
+        <div class="sub-menu" style="display: none; position: absolute; left: 100%; top: 0; background: white; border: 1px solid #ccc; padding: 10px; border-radius: 4px;">
+            <div class="sub-option" data-action="recall-sender" style="padding: 5px; cursor: pointer;">Thu hồi phía bạn</div>
+            <div class="sub-option" data-action="recall-both" style="padding: 5px; cursor: pointer;">Thu hồi cho cả hai</div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Thêm màu sắc giống Messenger FB */
+    .bg-messenger-blue {
+        background-color: #0084ff; /* Màu xanh dương của Messenger */
+        border-radius: 10px;
+        padding: 8px 12px;
+    }
+
+    .bg-messenger-gray {
+        background-color: #e9ecef; /* Màu xám nhạt cho tin nhắn nhận */
+        border-radius: 10px;
+        padding: 8px 12px;
+    }
+
+    .message-options-menu {
+        position: absolute;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+        z-index: 1000; /* Tăng z-index để đảm bảo hiển thị trên các phần tử khác */
+        min-width: 120px;
+        padding: 8px 0;
+    }
+
+        .message-options-menu .option {
+            padding: 10px 16px;
+            cursor: pointer;
+        }
+
+            .message-options-menu .option:hover {
+                background: #f0f0f0;
+            }
+
+    .d-none {
+        display: none;
+    }
+
+    .message-item {
+        position: relative;
+        margin-bottom: 10px; /* Thêm khoảng cách giữa các tin nhắn */
+    }
+
+    .message-options-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 16px;
+        padding: 0 5px;
+        color: #888;
+        margin-left: 5px;
+        vertical-align: middle; /* Căn giữa theo chiều dọc */
+    }
+
+        .message-options-btn:hover {
+            color: #333;
+        }
+</style>
+
+
+<style>
+    .pinned-dropdown-item {
+        padding: 8px 12px;
+        cursor: pointer;
+        transition: background 0.2s;
+        border-bottom: 1px solid #f0f2f5;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .pinned-item-content {
+        flex: 1;
+        min-width: 0;
+        padding-right: 8px;
+    }
+
+    .pinned-sender {
+        font-weight: 600;
+        color: #050505;
+        font-size: 13px;
+        margin-bottom: 2px;
+    }
+
+    .pinned-text {
+        color: #65676b;
+        font-size: 13px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .btn-unpin-small {
+        background: none;
+        border: none;
+        color: #8a8d91;
+        padding: 4px 8px;
+        cursor: pointer;
+        border-radius: 50%;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+    }
+
+        .btn-unpin-small:hover {
+            background: #f0f2f5;
+            color: #e41e3f;
+        }
+
+    .pinned-dropdown-item:hover {
+        background: #f8f9fa;
+    }
+
+        .pinned-dropdown-item:hover .pinned-item-content {
+            color: #1877f2;
+        }
+</style>

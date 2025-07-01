@@ -1,0 +1,138 @@
+﻿<!--_Layout.cshtml-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Dating App</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <!-- THÊM: Chat CSS cho toàn app -->
+    <link rel="stylesheet" href="~/css/chat.css" asp-append-version="true" />
+    <!-- THÊM: Font Awesome cho Admin button -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <link rel="stylesheet" href="~/css/emoji-picker.css" asp-append-version="true" />
+    <!-- THÊM: Hỗ trợ Styles -->
+    <script src="~/js/sticker-error-handler.js"></script>
+    <link rel="stylesheet" href="~/css/sticker-picker.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/message-types.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/location-sharing.css" asp-append-version="true" />
+    <!-- THÊM: Notification CSS -->
+    <link rel="stylesheet" href="~/css/notification.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/global-notification.css" asp-append-version="true" />
+    @await RenderSectionAsync("Styles", required: false)
+</head>
+<body>
+    <header>
+        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
+            <div class="container-fluid">
+                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">Dating App</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
+                    <ul class="navbar-nav flex-grow-1">
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
+                        </li>
+                        <!-- THÊM: Chat link trong navbar -->
+                        @if (User.Identity.IsAuthenticated)
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="Chat" asp-action="Index">
+                                    💬 Chat
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Explore">
+                                    🔍 Explore
+                                </a>
+                            </li>
+                            <!-- SỬA: Notification link với route đúng -->
+                            <li class="nav-item">
+                                <a class="nav-link text-dark position-relative" asp-area="" asp-controller="Home" asp-action="Notification" id="notificationLink">
+                                    🔔 Thông báo
+                                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" 
+                                          id="notificationCount" style="display: none;">
+                                        0
+                                    </span>
+                                </a>
+                            </li>
+                        }
+                    </ul>
+
+                    <!-- THÊM: Admin Button -->
+                    <ul class="navbar-nav">
+                        <li class="nav-item">
+                            <a class="nav-link btn btn-danger btn-sm text-white me-2"
+                               href="https://localhost:7215/Admin/Account/Login"
+                               title="Admin Login">
+                                <i class="fas fa-shield-alt"></i> Admin
+                            </a>
+                        </li>
+                    </ul>
+
+                    <partial name="_LoginPartial" />
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <div class="container-fluid">
+        <main role="main" class="pb-3">
+            @RenderBody()
+        </main>
+    </div>
+
+    <footer class="border-top footer text-muted">
+        <div class="container">
+            &copy; 2025 - Dating App - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+        </div>
+    </footer>
+
+    <!-- THÊM: Partial View cho giao diện thông báo cuộc gọi -->
+    @if (User.Identity.IsAuthenticated)
+    {
+        <partial name="_CallModal" />
+    }
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    <!-- THÊM: SignalR và các script phụ thuộc cho người dùng đã đăng nhập -->
+    @if (User.Identity.IsAuthenticated)
+    {
+        <script src="~/lib/signalr/signalr.js"></script>
+        <script src="~/js/utils.js"></script>
+        <script src="~/js/signalr-init.js"></script>
+        <!-- THÊM: Các script liên quan đến cuộc gọi và nhắn tin -->
+        <script src="~/js/webrtc-calls.js"></script>
+        <script src="~/js/user-selection.js"></script>
+        <script src="~/js/message-handling.js"></script>
+        <script src="~/js/voice-recording.js"></script>
+        <script src="~/js/emoji-picker.js"></script>
+        <script src="~/js/sticker-picker.js"></script>
+        <script src="~/js/location-sharing.js"></script>
+        <script src="~/js/warning-notification.js"></script>
+        <!-- THÊM: Global notification script -->
+        <script src="~/js/global-notification.js" asp-append-version="true"></script>
+
+        <script>
+            let currentUserId = '@User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value';
+            document.addEventListener('DOMContentLoaded', function() {
+                console.log('🚀 Initializing SignalR after login...');
+                initializeSignalR().catch(err => {
+                    console.error('❌ SignalR initialization failed:', err);
+                });
+                
+                // THÊM: Initialize global notifications
+                if (typeof initializeGlobalNotifications === 'function') {
+                    initializeGlobalNotifications();
+                }
+            });
+        </script>
+    }
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
